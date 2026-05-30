@@ -1,9 +1,27 @@
 // Gemini 2.5 Flash Image ("Nano Banana") wrapper — generates a photorealistic
 // avatar face from a text prompt (and optionally edits a reference image).
 import { GoogleGenAI } from "@google/genai";
+import sharp from "sharp";
 import { ServiceError } from "./heygen.js";
 
 const IMAGE_MODEL = "gemini-2.5-flash-image";
+
+// Phone photos often carry EXIF rotation, which confuses the model and hurts
+// likeness. Bake the orientation into the pixels and downscale to keep the
+// request lean. Falls back to the original bytes if processing fails.
+async function normalizeReference(ref) {
+  try {
+    const buf = Buffer.from(ref.data, "base64");
+    const out = await sharp(buf)
+      .rotate() // applies EXIF orientation
+      .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    return { mimeType: "image/jpeg", data: out.toString("base64") };
+  } catch {
+    return ref;
+  }
+}
 
 let client = null;
 function getClient() {
@@ -41,11 +59,12 @@ export async function generateAvatarImage({ prompt, referenceImage, referenceIma
   const ai = getClient();
 
   // Normalise references: accept a single `referenceImage` or an array.
-  const refs = []
+  const rawRefs = []
     .concat(referenceImages || [])
     .concat(referenceImage ? [referenceImage] : [])
     .filter((r) => r?.data && r?.mimeType)
     .slice(0, 8); // cap to keep the request reasonable
+  const refs = await Promise.all(rawRefs.map(normalizeReference));
 
   const guidance = GUIDANCE[framing] || GUIDANCE.portrait;
   const fullPrompt =
