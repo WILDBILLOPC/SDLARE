@@ -1,0 +1,20 @@
+{
+  "name": "sdlare-avatar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SDLARE realistic talking avatar — HeyGen LiveAvatar + video generation, Gemini Nano Banana face studio.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

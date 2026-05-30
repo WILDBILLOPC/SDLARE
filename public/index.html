@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SDLARE · Realistic Talking Avatar</title>
+  <link rel="preconnect" href="https://esm.sh" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◐</span>
+      <div>
+        <h1>SDLARE Avatar</h1>
+        <p>San Diego Lending &amp; Real Estate — realistic talking avatar</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="live">Live Assistant</button>
+      <button class="tab" data-tab="spokesperson">Spokesperson Video</button>
+      <button class="tab" data-tab="studio">Avatar Studio</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ─── LIVE ASSISTANT ─────────────────────────────────────────────────── -->
+    <section class="panel active" id="panel-live">
+      <div class="stage">
+        <div class="video-wrap">
+          <video id="live-video" autoplay playsinline></video>
+          <div class="video-overlay" id="live-overlay">
+            <p>Real-time photorealistic avatar</p>
+            <span class="hint">Click “Start session” to connect</span>
+          </div>
+          <span class="badge" id="live-quality" hidden></span>
+        </div>
+      </div>
+      <aside class="controls">
+        <h2>Live Assistant</h2>
+        <p class="muted">A low-latency, interactive HeyGen LiveAvatar. Type a line and it speaks it instantly, or enable voice chat to talk back and forth.</p>
+
+        <label class="field">
+          <span>LiveAvatar ID <small>(optional — uses server default if blank)</small></span>
+          <input type="text" id="live-avatar-id" placeholder="e.g. Wayne_20240711" />
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" id="live-voicechat" />
+          <span>Enable voice chat (microphone)</span>
+        </label>
+
+        <div class="btn-row">
+          <button class="btn primary" id="live-start">Start session</button>
+          <button class="btn" id="live-stop" disabled>Stop</button>
+        </div>
+
+        <label class="field">
+          <span>Make the avatar say</span>
+          <textarea id="live-text" rows="3" placeholder="Welcome to San Diego Lending and Real Estate. How can I help with your loan today?"></textarea>
+        </label>
+        <div class="btn-row">
+          <button class="btn primary" id="live-speak" disabled>Speak</button>
+          <button class="btn" id="live-interrupt" disabled>Interrupt</button>
+        </div>
+
+        <div class="status" id="live-status" data-state="idle">Idle</div>
+      </aside>
+    </section>
+
+    <!-- ─── SPOKESPERSON VIDEO ─────────────────────────────────────────────── -->
+    <section class="panel" id="panel-spokesperson">
+      <div class="stage">
+        <div class="video-wrap">
+          <video id="spk-video" controls playsinline></video>
+          <div class="video-overlay" id="spk-overlay">
+            <p>Photorealistic scripted video</p>
+            <span class="hint">Write a script, pick a presenter, and render</span>
+          </div>
+          <div class="spinner" id="spk-spinner" hidden>
+            <div class="ring"></div>
+            <span id="spk-progress">Rendering…</span>
+          </div>
+        </div>
+        <div class="btn-row" id="spk-download-row" hidden>
+          <a class="btn primary" id="spk-download" download="sdlare-avatar.mp4">Download video</a>
+        </div>
+      </div>
+      <aside class="controls">
+        <h2>Spokesperson Video</h2>
+        <p class="muted">Generates a fully photorealistic talking-avatar video from a written script using HeyGen video generation. Great for welcome messages, product explainers, and announcements.</p>
+
+        <label class="field">
+          <span>Presenter</span>
+          <select id="spk-avatar"><option value="">Loading avatars…</option></select>
+        </label>
+        <label class="field">
+          <span>Voice</span>
+          <select id="spk-voice"><option value="">Loading voices…</option></select>
+        </label>
+        <label class="field">
+          <span>Script</span>
+          <textarea id="spk-script" rows="6" placeholder="Hi, I'm your SDLARE loan concierge. Today I'll walk you through the three steps to get pre-approved…"></textarea>
+        </label>
+        <label class="field inline">
+          <span>Speed</span>
+          <input type="range" id="spk-speed" min="0.5" max="1.5" step="0.1" value="1" />
+          <output id="spk-speed-out">1.0×</output>
+        </label>
+
+        <div class="btn-row">
+          <button class="btn primary" id="spk-generate">Generate video</button>
+        </div>
+        <div class="status" id="spk-status" data-state="idle">Idle</div>
+      </aside>
+    </section>
+
+    <!-- ─── AVATAR STUDIO ──────────────────────────────────────────────────── -->
+    <section class="panel" id="panel-studio">
+      <div class="stage">
+        <div class="image-wrap">
+          <img id="studio-img" alt="Generated avatar face" hidden />
+          <div class="video-overlay" id="studio-overlay">
+            <p>Design a face with Gemini “Nano Banana”</p>
+            <span class="hint">Describe the person — generate a HeyGen-ready portrait</span>
+          </div>
+          <div class="spinner" id="studio-spinner" hidden>
+            <div class="ring"></div>
+            <span>Generating…</span>
+          </div>
+        </div>
+        <div class="btn-row" id="studio-download-row" hidden>
+          <a class="btn primary" id="studio-download" download="sdlare-avatar-face.png">Download portrait</a>
+        </div>
+      </div>
+      <aside class="controls">
+        <h2>Avatar Studio</h2>
+        <p class="muted">Generate a photorealistic portrait with Gemini 2.5 Flash Image. The output is tuned to be front-facing and evenly lit — ideal to upload to HeyGen as a <strong>Photo Avatar / digital twin</strong>, then use it in the other two tabs.</p>
+
+        <label class="field">
+          <span>Describe the person</span>
+          <textarea id="studio-prompt" rows="4" placeholder="A warm, professional Latina woman in her 40s, business-casual blazer, friendly approachable smile, San Diego real estate advisor."></textarea>
+        </label>
+
+        <label class="field">
+          <span>Framing</span>
+          <select id="studio-framing">
+            <option value="portrait">Portrait — head &amp; shoulders (best for HeyGen)</option>
+            <option value="full">Full length — show outfit, watch &amp; shoes</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Reference photos <small>(optional — keeps likeness; add several)</small></span>
+          <input type="file" id="studio-ref" accept="image/*" multiple />
+          <small id="studio-ref-count" class="muted"></small>
+        </label>
+
+        <div class="btn-row">
+          <button class="btn primary" id="studio-generate">Generate portrait</button>
+        </div>
+        <div class="status" id="studio-status" data-state="idle">Idle</div>
+        <p class="muted small">Next step: upload this portrait at <a href="https://app.heygen.com/" target="_blank" rel="noopener">app.heygen.com</a> → Avatars → Photo Avatar to make it talk.</p>
+      </aside>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
