@@ -1,8 +1,28 @@
 // Avatar Studio — generate a photorealistic face with Gemini "Nano Banana".
 import { $, setStatus, toast, api, fileToBase64 } from "./util.js";
 
+// Ready-made prompts. Each sets the prompt text and the best framing.
+const PRESETS = {
+  valentino: {
+    framing: "full",
+    text:
+      "A confident, athletic man, about 40 years old, with a full head of styled hair, " +
+      "modeling as a Valentino 2026 campaign model. Wearing a high-fashion designer grey " +
+      "ensemble styled like a Valentino 2026 runway look, with a black shirt and black shoes. " +
+      "On his left wrist, a Rolex Cosmograph Daytona in white gold with a blue dial, clearly " +
+      "visible. Editorial high-fashion full-length shot, confident pose.",
+  },
+  advisor: {
+    framing: "portrait",
+    text:
+      "A warm, approachable San Diego lending and real estate advisor in their 40s, " +
+      "professional business-casual blazer, confident friendly smile, trustworthy.",
+  },
+};
+
 const els = {
   prompt: $("#studio-prompt"),
+  presets: $("#studio-presets"),
   ref: $("#studio-ref"),
   refCount: $("#studio-ref-count"),
   framing: $("#studio-framing"),
@@ -60,6 +80,14 @@ export function initStudio(feature) {
     return;
   }
   els.generate.addEventListener("click", generate);
+  els.presets.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-preset]");
+    if (!btn) return;
+    const preset = PRESETS[btn.dataset.preset];
+    if (!preset) return;
+    els.prompt.value = preset.text;
+    els.framing.value = preset.framing;
+  });
   els.ref.addEventListener("change", () => {
     const n = els.ref.files?.length || 0;
     els.refCount.textContent = n ? `${n} reference photo${n > 1 ? "s" : ""} selected` : "";

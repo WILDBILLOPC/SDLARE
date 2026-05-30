@@ -46,11 +46,15 @@ public/
    ```bash
    npm install
    ```
-2. Copy the env template and add your keys:
+2. Provide your keys **either** via a `.env` file **or** as exported environment
+   variables — both work, and exported vars take precedence:
    ```bash
-   cp .env.example .env
+   cp .env.example .env        # option A: edit .env
+   # — or — option B: export directly
+   export GEMINI_API_KEY=...   HEYGEN_API_KEY=...   LIVEAVATAR_API_KEY=...
    ```
-   Fill in any of:
+   On startup the server prints which tabs are active so you can confirm the keys
+   were picked up. Configure any of:
    - `HEYGEN_API_KEY` — from <https://app.heygen.com/settings?nav=API> (enables Spokesperson Video + avatar/voice lists)
    - `LIVEAVATAR_API_KEY` — LiveAvatar key for the real-time assistant (falls back to `HEYGEN_API_KEY` if unset)
    - `GEMINI_API_KEY` — from <https://aistudio.google.com/apikey> (enables Avatar Studio)

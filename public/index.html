@@ -137,9 +137,17 @@
         <h2>Avatar Studio</h2>
         <p class="muted">Generate a photorealistic portrait with Gemini 2.5 Flash Image. The output is tuned to be front-facing and evenly lit — ideal to upload to HeyGen as a <strong>Photo Avatar / digital twin</strong>, then use it in the other two tabs.</p>
 
+        <div class="field">
+          <span>Presets</span>
+          <div class="btn-row" id="studio-presets">
+            <button type="button" class="btn preset" data-preset="valentino">Valentino 2026 model</button>
+            <button type="button" class="btn preset" data-preset="advisor">SDLARE advisor</button>
+          </div>
+        </div>
+
         <label class="field">
           <span>Describe the person</span>
-          <textarea id="studio-prompt" rows="4" placeholder="A warm, professional Latina woman in her 40s, business-casual blazer, friendly approachable smile, San Diego real estate advisor."></textarea>
+          <textarea id="studio-prompt" rows="5" placeholder="A warm, professional advisor in their 40s, business-casual blazer, friendly approachable smile, San Diego real estate advisor."></textarea>
         </label>
 
         <label class="field">

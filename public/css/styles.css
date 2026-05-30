@@ -188,6 +188,8 @@ input[type="file"] { font-size: 12px; color: var(--muted); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover:not(:disabled) { background: #2f6ef0; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.preset { flex: 0 1 auto; font-size: 12px; padding: 7px 12px; background: transparent; }
+.btn.preset:hover { border-color: var(--accent-2); color: var(--accent-2); }
 
 .status {
   font-size: 13px;

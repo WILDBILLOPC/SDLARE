@@ -74,5 +74,12 @@ app.post("/api/studio/generate", wrap(async (req, res) => {
 }));
 
 app.listen(PORT, () => {
+  // Keys are read from the environment — either via a .env file or exported
+  // directly in your shell (export GEMINI_API_KEY=... etc). This readout shows
+  // what was picked up so you immediately know which tabs will be active.
+  const on = (v) => (v ? "✓ enabled" : "✗ off (key missing)");
   console.log(`\n  SDLARE Avatar running → http://localhost:${PORT}\n`);
+  console.log(`  Live Assistant      ${on(process.env.LIVEAVATAR_API_KEY || process.env.HEYGEN_API_KEY)}`);
+  console.log(`  Spokesperson Video  ${on(process.env.HEYGEN_API_KEY)}`);
+  console.log(`  Avatar Studio       ${on(process.env.GEMINI_API_KEY)}\n`);
 });
