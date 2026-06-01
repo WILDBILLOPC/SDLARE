@@ -1,0 +1,77 @@
+// SDLARE — San Diego Lending and Real Estate operations platform.
+// Schema docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Staff who log into the platform.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("OFFICER") // ADMIN | OFFICER
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  loans      Loan[]
+  properties Property[]
+}
+
+// A loan moving through the lending pipeline.
+model Loan {
+  id            String   @id @default(cuid())
+  borrowerName  String
+  borrowerEmail String?
+  borrowerPhone String?
+  loanType      String   @default("Conventional") // Conventional | FHA | VA | Jumbo | HELOC | Refinance
+  amount        Float    @default(0)
+  interestRate  Float? // annual percentage rate
+  stage         String   @default("LEAD") // LEAD | APPLICATION | PROCESSING | UNDERWRITING | APPROVED | FUNDED | CLOSED | DENIED
+  notes         String?
+  targetCloseAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Optional link to the subject property.
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  propertyId String?
+
+  // Owning loan officer.
+  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId String?
+
+  @@index([stage])
+  @@index([ownerId])
+}
+
+// A real estate listing managed by the brokerage.
+model Property {
+  id           String   @id @default(cuid())
+  address      String
+  city         String   @default("San Diego")
+  state        String   @default("CA")
+  zip          String?
+  propertyType String   @default("Single Family") // Single Family | Condo | Townhouse | Multi-Family | Land
+  status       String   @default("ACTIVE") // ACTIVE | PENDING | SOLD | OFF_MARKET
+  listPrice    Float    @default(0)
+  beds         Int?
+  baths        Float?
+  sqft         Int?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  loans Loan[]
+
+  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId String?
+
+  @@index([status])
+}
