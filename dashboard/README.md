@@ -7,18 +7,34 @@ via PM2 at `localhost:3000` on the Mac mini.
 
 | Tab | Status | Notes |
 |-----|--------|-------|
-| **Overview** | Live | Income, expenses, net cashflow, outstanding, occupancy & collection — all derived from the rental portfolio. |
-| **Rentals** | Live | Full property/unit/tenant management with lease dates, monthly expenses, and per-unit rent payment tracking. |
+| **Overview** | Live | Income, expenses, net cashflow, outstanding, occupancy & collection — all in USD **and** MXN. |
+| **Rentals** | Live | Lateral (Windows-style) sub-tabs: Properties, Expenses, Totals & P&L, Options. |
 | **FX Engine** | Live | USD base rates (MXN/EUR/GBP/CAD) from `api.frankfurter.dev`. |
 | **Activity** | Live | Rolling log of property/unit/payment events. |
-| **P&L** | Live | Per-property profit & loss for the current month plus an annual projection. |
+| **P&L** | Live | Building → property → grand-total profit & loss with an annual projection, dual currency. |
+
+## Rentals sub-tabs
+
+- **Properties** — add/delete properties (with a *Building / Group* label, address, notes) and
+  units. Each unit captures tenant, **capacity, fixtures, features, notes**, lease dates, and
+  monthly rent in **dollars or pesos**. Mark each unit's rent paid/outstanding per month.
+- **Expenses** — log expenses one-by-one (category presets like Property Tax, currency, notes),
+  with a by-category roll-up and a fully itemized table for analysis.
+- **Totals & P&L** — income / expenses / net **by building, by property, and a grand total**,
+  every figure shown in both USD and MXN, plus an annual projection.
+- **Options** — set the USD→MXN exchange rate and default input currency, load sample
+  fixtures, or clear all data.
+
+Any rentals view (or a single property) can be **popped out into a new browser window**
+via the ⧉ button; windows share data and stay in sync.
 
 ## Data
 
-Rental data and the activity log are persisted in the browser via
-`localStorage` (keys `sdlare.rentals.v1`, `sdlare.activity.v1`). No backend is
-required for the single local dashboard. All financial calculations live in
-`src/rentals.js` as pure functions so they can be unit-tested.
+Rental data, settings and the activity log are persisted in the browser via
+`localStorage` (keys `sdlare.rentals.v1`, `sdlare.settings.v1`, `sdlare.activity.v1`). No
+backend is required for the single local dashboard. All financial calculations — including
+dual-currency conversion and multi-level totals — live in `src/rentals.js` as pure functions
+so they can be unit-tested.
 
 ## Develop
 

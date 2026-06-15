@@ -628,3 +628,174 @@ body {
 }
 .activity-item:last-child { border-bottom: none; }
 .activity-time { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+/* ── Lateral (Windows-style) sub-tabs ─────────────────────── */
+.lateral {
+  display: flex;
+  gap: 1rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.lateral-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 180px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 0.75rem;
+}
+
+.lateral-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--text-dim);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 0 6px 6px 0;
+}
+
+.lateral-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.lateral-tab.active { color: var(--cyan); border-left-color: var(--cyan); background: rgba(0,212,255,0.06); }
+.lateral-tab.popout { margin-top: auto; color: var(--text-dim); font-size: 12px; }
+.lateral-tab.popout:hover { color: var(--green); }
+.lt-icon { font-size: 15px; }
+
+.lateral-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.lateral-content::-webkit-scrollbar { width: 6px; height: 6px; }
+.lateral-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Horizontal scroll for wide tables ────────────────────── */
+.table-scroll { width: 100%; overflow-x: auto; }
+.table-scroll::-webkit-scrollbar { height: 6px; }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Misc text helpers ────────────────────────────────────── */
+.dim { color: var(--text-dim); }
+.small { font-size: 12px; }
+.mono { font-family: 'Share Tech Mono', monospace; }
+
+.chip {
+  margin-left: 0.6rem;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  background: rgba(0,212,255,0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
+.prop-note { font-size: 12px; color: var(--text-dim); margin-top: 4px; font-style: italic; }
+
+.detail-row td {
+  padding-top: 0 !important;
+  padding-bottom: 0.6rem !important;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-right: 6px;
+}
+
+.group-row td { font-weight: 700; background: rgba(255,255,255,0.02); }
+.indent { padding-left: 2rem !important; }
+
+/* ── Segmented control (currency / option toggles) ────────── */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active { background: var(--cyan); color: var(--bg); }
+
+.ca-row { display: flex; gap: 0.6rem; align-items: stretch; }
+.ca-row input { flex: 1; }
+
+/* ── Form selects + textareas ─────────────────────────────── */
+.field select,
+.field textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.2s;
+  resize: vertical;
+}
+.field select:focus,
+.field textarea:focus { border-color: var(--cyan); }
+
+/* ── Pop-out window shell ─────────────────────────────────── */
+.popout-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+}
+.popout-bar {
+  flex-shrink: 0;
+  padding: 0.75rem 1.25rem;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  font-weight: 700;
+}
+.popout-body { flex: 1; overflow: auto; padding: 1.5rem; }
+
+/* ── Responsive: stack lateral nav on small screens ───────── */
+@media (max-width: 768px) {
+  .lateral { flex-direction: column; }
+  .lateral-nav {
+    flex-direction: row;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-right: 0;
+    padding-bottom: 0.5rem;
+    overflow-x: auto;
+  }
+  .lateral-tab { border-left: none; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; white-space: nowrap; }
+  .lateral-tab.active { border-left-color: transparent; border-bottom-color: var(--cyan); }
+  .lateral-tab.popout { margin-top: 0; margin-left: auto; }
+}
