@@ -799,3 +799,43 @@ body {
   .lateral-tab.active { border-left-color: transparent; border-bottom-color: var(--cyan); }
   .lateral-tab.popout { margin-top: 0; margin-left: auto; }
 }
+
+/* ── Tasks ────────────────────────────────────────────────── */
+.task-list { display: flex; flex-direction: column; gap: 2px; }
+
+.task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.task-item:last-child { border-bottom: none; }
+
+.task-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 14px;
+  flex: 1;
+}
+.task-check input { accent-color: var(--green); width: 15px; height: 15px; cursor: pointer; }
+
+.task-item.done .task-check span { text-decoration: line-through; color: var(--text-dim); }
+.task-prop { color: var(--text-dim); font-size: 12px; }
+
+.task-add { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+.task-add input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  padding: 7px 11px;
+  outline: none;
+}
+.task-add input:focus { border-color: var(--cyan); }

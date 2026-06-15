@@ -9,11 +9,13 @@
 // are reported in USD so the UI can show both dollars and pesos.
 //
 // Data shape:
-//   Property { id, name, building, address, notes, units: Unit[], expenses: Expense[] }
+//   Property { id, name, building, address, notes,
+//              units: Unit[], expenses: Expense[], tasks: Task[] }
 //   Unit     { id, label, tenant, notes, capacity, fixtures, features,
 //              rent, rentCurrency, leaseStart, leaseEnd,
 //              payments: { 'YYYY-MM': 'paid' | 'outstanding' } }
 //   Expense  { id, category, amount, currency, notes }   // recurring monthly cost
+//   Task     { id, text, done, created }                 // per-property to-do
 //   Settings { usdMxn, defaultCurrency }
 
 export const STORAGE_KEY = 'sdlare.rentals.v1';
@@ -198,6 +200,56 @@ export function grandTotal(properties = [], month = monthKey(), rate = DEFAULT_S
   );
 }
 
+// ── Tasks ───────────────────────────────────────────────────────────────
+// Flatten every property's task list into one "macro" list (tagged with the
+// owning property) for the main-tab roll-up. Open tasks come first, then by
+// most-recently created.
+export function allTasks(properties = []) {
+  const tasks = [];
+  for (const prop of properties) {
+    for (const t of prop.tasks || []) {
+      tasks.push({ ...t, propId: prop.id, propName: prop.name });
+    }
+  }
+  return tasks.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return (b.created || 0) - (a.created || 0);
+  });
+}
+
+export function openTaskCount(properties = []) {
+  return allTasks(properties).filter((t) => !t.done).length;
+}
+
+// ── Daily figures + FX conversion ───────────────────────────────────────
+// Number of days in a 'YYYY-MM' month string.
+export function daysInMonth(month = monthKey()) {
+  const [y, m] = String(month).split('-').map(Number);
+  if (!y || !m) return 30;
+  return new Date(y, m, 0).getDate();
+}
+
+// Per-day rent figures (USD base) for a month. `collectedPerDay` is the
+// run-rate of what's been collected so far (collected ÷ elapsed days);
+// `scheduledPerDay` spreads the full scheduled rent evenly across the month.
+export function dailyFigures(metrics, month = monthKey(), refDate = new Date()) {
+  const dim = daysInMonth(month);
+  const inThisMonth = monthKey(refDate) === month;
+  const dayOfMonth = inThisMonth ? Math.min(Math.max(refDate.getDate(), 1), dim) : dim;
+  return {
+    daysInMonth: dim,
+    dayOfMonth,
+    collectedPerDay: metrics.collectedRent / dayOfMonth,
+    scheduledPerDay: metrics.scheduledRent / dim,
+  };
+}
+
+// Convert a single amount into both currencies. Returns USD-base + MXN.
+export function convertAmount(amount, currency, rate) {
+  const usd = toUSD(amount, currency, rate);
+  return { usd, mxn: usdToMxn(usd, rate) };
+}
+
 // ── Persistence ─────────────────────────────────────────────────────────
 export function loadProperties(storage = safeStorage()) {
   return loadJSON(STORAGE_KEY, [], (v) => (Array.isArray(v) ? v : []), storage);
@@ -278,6 +330,10 @@ export function sampleProperties() {
         { id: uid(), category: 'Property Tax', amount: 620, currency: 'USD', notes: 'Annual ÷ 12' },
         { id: uid(), category: 'Insurance', amount: 180, currency: 'USD', notes: '' },
       ],
+      tasks: [
+        { id: uid(), text: 'Follow up on Unit B rent', done: false, created: Date.now() },
+        { id: uid(), text: 'Schedule annual HVAC service', done: false, created: Date.now() - 1000 },
+      ],
     },
     {
       id: uid(),
@@ -296,6 +352,9 @@ export function sampleProperties() {
       expenses: [
         { id: uid(), category: 'HOA', amount: 3200, currency: 'MXN', notes: 'Cuota de mantenimiento' },
         { id: uid(), category: 'Property Tax', amount: 1100, currency: 'MXN', notes: 'Predial ÷ 12' },
+      ],
+      tasks: [
+        { id: uid(), text: 'Renew INM paperwork for tenant', done: false, created: Date.now() - 2000 },
       ],
     },
   ];

@@ -13,6 +13,9 @@ import {
   propertyPL,
   groupByBuilding,
   grandTotal,
+  allTasks,
+  dailyFigures,
+  convertAmount,
   loadProperties,
   saveProperties,
   loadSettings,
@@ -76,6 +79,7 @@ function useRentals() {
       notes: d.notes.trim(),
       units: [],
       expenses: [],
+      tasks: [],
     };
     setProperties((prev) => [...prev, prop]);
     log(`Added property "${prop.name}"`);
@@ -152,6 +156,29 @@ function useRentals() {
     }));
   }, []);
 
+  const addTask = useCallback((propId, text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setProperties((prev) => prev.map((p) => p.id !== propId ? p : {
+      ...p,
+      tasks: [...(p.tasks || []), { id: uid(), text: trimmed, done: false, created: Date.now() }],
+    }));
+    log(`Added task: ${trimmed}`);
+  }, [log]);
+
+  const toggleTask = useCallback((propId, taskId) => {
+    setProperties((prev) => prev.map((p) => p.id !== propId ? p : {
+      ...p,
+      tasks: (p.tasks || []).map((t) => t.id === taskId ? { ...t, done: !t.done } : t),
+    }));
+  }, []);
+
+  const removeTask = useCallback((propId, taskId) => {
+    setProperties((prev) => prev.map((p) => p.id !== propId ? p : {
+      ...p, tasks: (p.tasks || []).filter((t) => t.id !== taskId),
+    }));
+  }, []);
+
   const updateSettings = useCallback((patch) => setSettings((prev) => ({ ...prev, ...patch })), []);
 
   const loadSample = useCallback(() => {
@@ -167,7 +194,8 @@ function useRentals() {
   return {
     properties, settings, activity,
     addProperty, removeProperty, addUnit, removeUnit, togglePayment,
-    addExpense, removeExpense, updateSettings, loadSample, clearAll,
+    addExpense, removeExpense, addTask, toggleTask, removeTask,
+    updateSettings, loadSample, clearAll,
   };
 }
 
@@ -180,44 +208,108 @@ const StatCard = ({ label, value, sub, color }) => (
   </div>
 );
 
-// ── Overview tab ───────────────────────────────────────────
-const OverviewTab = ({ metrics, rate }) => (
-  <div className="tab-content">
-    <div className="stats-grid">
-      <StatCard label="Monthly Income" value={formatMoney(metrics.scheduledRent)} sub={`${metrics.propertyCount} props · ${formatMoney(metrics.scheduledRent * normalizeRate(rate), 'MXN')}`} color="green" />
-      <StatCard label="Total Expenses" value={formatMoney(metrics.monthlyExpenses)} sub={formatMoney(metrics.monthlyExpenses * normalizeRate(rate), 'MXN')} color="red" />
-      <StatCard label="Net Cashflow" value={formatMoney(metrics.netCashflow)} sub={formatMoney(metrics.netCashflow * normalizeRate(rate), 'MXN')} color="cyan" />
-      <StatCard label="Outstanding" value={formatMoney(metrics.outstandingRent)} sub={`${metrics.outstandingUnits} units`} color="orange" />
-    </div>
-    <div className="panel-row">
-      <div className="panel">
-        <div className="panel-title">PAYMENT STATUS</div>
-        <div className="panel-body">
-          <div className="occupancy-row"><span>OCCUPANCY</span><span className="badge-cyan">{formatPct(metrics.occupancyRate)}</span></div>
-          <div className="occupancy-row" style={{ marginTop: '0.75rem' }}><span>RENT COLLECTED</span><span className="badge-cyan">{formatPct(metrics.collectionRate)}</span></div>
-          <div className="occupancy-row" style={{ marginTop: '0.75rem' }}><span>OCCUPIED UNITS</span><span className="badge-cyan">{metrics.occupiedUnits} / {metrics.totalUnits}</span></div>
+// ── FX converter box ───────────────────────────────────────
+// Enter an amount in dollars or pesos and instantly see both, using the
+// configured USD→MXN rate. The rate itself is editable here (persisted).
+const FxConverter = ({ rate, onRate }) => {
+  const [amount, setAmount] = useState('1000');
+  const [currency, setCurrency] = useState('USD');
+  const { usd, mxn } = convertAmount(amount, currency, rate);
+  return (
+    <div className="panel">
+      <div className="panel-title">FX CONVERTER — 1 USD = {normalizeRate(rate)} MXN</div>
+      <div className="panel-body">
+        <div className="ca-row" style={{ marginBottom: '0.9rem' }}>
+          <div className="seg">
+            {CURRENCIES.map((c) => (
+              <button key={c} className={`seg-btn ${currency === c ? 'active' : ''}`} onClick={() => setCurrency(c)}>{c}</button>
+            ))}
+          </div>
+          <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
         </div>
-      </div>
-      <div className="panel">
-        <div className="panel-title">INCOME VS EXPENSES (USD / MXN)</div>
-        <div className="panel-body">
-          {[
-            ['Gross rent collected', metrics.collectedRent, 'green'],
-            ['Outstanding rent', metrics.outstandingRent, 'orange'],
-            ['Total expenses', metrics.monthlyExpenses, 'red'],
-            ['Net cashflow', metrics.netCashflow, 'cyan'],
-            ['Annual projection', metrics.annualProjection, 'cyan'],
-          ].map(([label, usd, color]) => (
-            <div className="ie-row" key={label}>
-              <span>{label}</span>
-              <span className={`val-${color}`}>{formatDual(usd, rate)}</span>
-            </div>
-          ))}
+        <div className="ie-row"><span>In dollars</span><span className="val-green mono">{formatMoney(usd, 'USD')}</span></div>
+        <div className="ie-row"><span>In pesos</span><span className="val-cyan mono">{formatMoney(mxn, 'MXN')}</span></div>
+        <div className="field" style={{ marginTop: '0.9rem' }}>
+          <label>Exchange rate (USD → MXN)</label>
+          <input type="number" min="0" step="0.01" defaultValue={normalizeRate(rate)}
+            onBlur={(e) => onRate(normalizeRate(e.target.value))} />
         </div>
       </div>
     </div>
+  );
+};
+
+// ── Reusable task list ─────────────────────────────────────
+const TaskList = ({ tasks, onToggle, onRemove, showProperty = false, emptyText = 'No tasks' }) => (
+  <div className="task-list">
+    {tasks.length === 0 && <div className="dim small">{emptyText}</div>}
+    {tasks.map((t) => (
+      <div className={`task-item ${t.done ? 'done' : ''}`} key={t.id}>
+        <label className="task-check">
+          <input type="checkbox" checked={t.done} onChange={() => onToggle(t)} />
+          <span>{t.text}{showProperty && t.propName ? <span className="task-prop"> · {t.propName}</span> : null}</span>
+        </label>
+        <button className="btn-danger" onClick={() => onRemove(t)}>✕</button>
+      </div>
+    ))}
   </div>
 );
+
+// ── Overview tab ───────────────────────────────────────────
+const OverviewTab = ({ store, metrics, rate, month }) => {
+  const daily = dailyFigures(metrics, month);
+  const tasks = allTasks(store.properties);
+  const openCount = tasks.filter((t) => !t.done).length;
+  return (
+    <div className="tab-content">
+      <div className="stats-grid">
+        <StatCard label="Monthly Income" value={formatMoney(metrics.scheduledRent)} sub={`${metrics.propertyCount} props · ${formatMoney(metrics.scheduledRent * normalizeRate(rate), 'MXN')}`} color="green" />
+        <StatCard label="Collected / Day" value={formatMoney(daily.collectedPerDay)} sub={`${formatMoney(daily.collectedPerDay * normalizeRate(rate), 'MXN')} · day ${daily.dayOfMonth}/${daily.daysInMonth}`} color="green" />
+        <StatCard label="Net Cashflow" value={formatMoney(metrics.netCashflow)} sub={formatMoney(metrics.netCashflow * normalizeRate(rate), 'MXN')} color="cyan" />
+        <StatCard label="Open Tasks" value={String(openCount)} sub={`${tasks.length} total`} color="orange" />
+      </div>
+      <div className="panel-row">
+        <div className="panel">
+          <div className="panel-title">PAYMENT STATUS</div>
+          <div className="panel-body">
+            <div className="occupancy-row"><span>OCCUPANCY</span><span className="badge-cyan">{formatPct(metrics.occupancyRate)}</span></div>
+            <div className="occupancy-row" style={{ marginTop: '0.75rem' }}><span>RENT COLLECTED</span><span className="badge-cyan">{formatPct(metrics.collectionRate)}</span></div>
+            <div className="occupancy-row" style={{ marginTop: '0.75rem' }}><span>OCCUPIED UNITS</span><span className="badge-cyan">{metrics.occupiedUnits} / {metrics.totalUnits}</span></div>
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-title">INCOME VS EXPENSES (USD / MXN)</div>
+          <div className="panel-body">
+            {[
+              ['Gross rent collected', metrics.collectedRent, 'green'],
+              ['Collected per day', daily.collectedPerDay, 'green'],
+              ['Outstanding rent', metrics.outstandingRent, 'orange'],
+              ['Total expenses', metrics.monthlyExpenses, 'red'],
+              ['Net cashflow', metrics.netCashflow, 'cyan'],
+              ['Annual projection', metrics.annualProjection, 'cyan'],
+            ].map(([label, usd, color]) => (
+              <div className="ie-row" key={label}>
+                <span>{label}</span>
+                <span className={`val-${color}`}>{formatDual(usd, rate)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="panel-row" style={{ marginTop: '1rem' }}>
+        <div className="panel">
+          <div className="panel-title">TASKS — ALL PROPERTIES ({openCount} OPEN)</div>
+          <div className="panel-body">
+            <TaskList tasks={tasks} showProperty emptyText="No tasks yet — add them per property in Rentals."
+              onToggle={(t) => store.toggleTask(t.propId, t.id)}
+              onRemove={(t) => store.removeTask(t.propId, t.id)} />
+          </div>
+        </div>
+        <FxConverter rate={rate} onRate={(r) => store.updateSettings({ usdMxn: r })} />
+      </div>
+    </div>
+  );
+};
 
 // ── FX tab (unchanged live rates) ──────────────────────────
 const FXTab = () => {
@@ -382,6 +474,14 @@ const PropertiesView = ({ store, month, rate }) => {
                   ))}
                 </>
               )}
+
+              <div className="sub-head"><span>Tasks</span></div>
+              <div style={{ padding: '0 1.25rem 0.5rem' }}>
+                <TaskList tasks={(prop.tasks || [])} emptyText="No tasks for this property."
+                  onToggle={(t) => store.toggleTask(prop.id, t.id)}
+                  onRemove={(t) => store.removeTask(prop.id, t.id)} />
+                <TaskAdder onAdd={(text) => store.addTask(prop.id, text)} />
+              </div>
 
               <div className="sub-head" style={{ paddingBottom: '0.9rem' }}>
                 <button className="btn-secondary" onClick={() => setUnitFor(prop.id)}>+ Unit</button>
@@ -628,6 +728,19 @@ const Field = ({ label, ...props }) => (
   <div className="field"><label>{label}</label><input {...props} /></div>
 );
 
+// Inline "add a task" input + button (Enter or click to submit).
+const TaskAdder = ({ onAdd }) => {
+  const [text, setText] = useState('');
+  const submit = () => { onAdd(text); setText(''); };
+  return (
+    <div className="task-add">
+      <input value={text} onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} placeholder="Add a task…" />
+      <button className="btn-secondary" onClick={submit}>+ Task</button>
+    </div>
+  );
+};
+
 const TextField = ({ label, ...props }) => (
   <div className="field"><label>{label}</label><textarea rows={2} {...props} /></div>
 );
@@ -784,7 +897,7 @@ export default function App() {
       case 'activity': return <ActivityTab activity={store.activity} />;
       case 'pl': return <div className="tab-content"><TotalsView store={store} month={month} rate={rate} /></div>;
       case 'overview':
-      default: return <OverviewTab metrics={metrics} rate={rate} />;
+      default: return <OverviewTab store={store} metrics={metrics} rate={rate} month={month} />;
     }
   };
 

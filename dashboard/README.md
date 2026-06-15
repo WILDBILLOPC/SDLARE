@@ -7,7 +7,7 @@ via PM2 at `localhost:3000` on the Mac mini.
 
 | Tab | Status | Notes |
 |-----|--------|-------|
-| **Overview** | Live | Income, expenses, net cashflow, outstanding, occupancy & collection — all in USD **and** MXN. |
+| **Overview** | Live | Income, **collected-per-day**, net cashflow, open-task count; payment status; income/expenses; a **macro task list** across all properties; and an **FX converter** — all in USD **and** MXN. |
 | **Rentals** | Live | Lateral (Windows-style) sub-tabs: Properties, Expenses, Totals & P&L, Options. |
 | **FX Engine** | Live | USD base rates (MXN/EUR/GBP/CAD) from `api.frankfurter.dev`. |
 | **Activity** | Live | Rolling log of property/unit/payment events. |
@@ -17,7 +17,8 @@ via PM2 at `localhost:3000` on the Mac mini.
 
 - **Properties** — add/delete properties (with a *Building / Group* label, address, notes) and
   units. Each unit captures tenant, **capacity, fixtures, features, notes**, lease dates, and
-  monthly rent in **dollars or pesos**. Mark each unit's rent paid/outstanding per month.
+  monthly rent in **dollars or pesos**. Mark each unit's rent paid/outstanding per month. Each
+  property has its own **task list** that rolls up into the Overview macro list.
 - **Expenses** — log expenses one-by-one (category presets like Property Tax, currency, notes),
   with a by-category roll-up and a fully itemized table for analysis.
 - **Totals & P&L** — income / expenses / net **by building, by property, and a grand total**,

@@ -3,6 +3,11 @@ import {
   propertyPL,
   groupByBuilding,
   grandTotal,
+  allTasks,
+  openTaskCount,
+  daysInMonth,
+  dailyFigures,
+  convertAmount,
   formatMoney,
   formatDual,
   formatPct,
@@ -182,6 +187,74 @@ describe('propertyPL / groupByBuilding / grandTotal', () => {
 
   it('computes a portfolio grand total', () => {
     expect(grandTotal(props, MONTH, RATE)).toEqual({ income: 4500, expenses: 500, net: 4000 });
+  });
+});
+
+describe('tasks', () => {
+  const props = [
+    { id: 'p1', name: 'A', tasks: [
+      { id: 't1', text: 'done one', done: true, created: 100 },
+      { id: 't2', text: 'open new', done: false, created: 300 },
+    ] },
+    { id: 'p2', name: 'B', tasks: [
+      { id: 't3', text: 'open old', done: false, created: 200 },
+    ] },
+    { id: 'p3', name: 'C' }, // no tasks array
+  ];
+
+  it('flattens tasks across properties, tagging the owner', () => {
+    const tasks = allTasks(props);
+    expect(tasks).toHaveLength(3);
+    expect(tasks[0]).toMatchObject({ id: 't2', propId: 'p1', propName: 'A' });
+  });
+
+  it('orders open tasks first, then newest', () => {
+    const order = allTasks(props).map((t) => t.id);
+    expect(order).toEqual(['t2', 't3', 't1']); // open(newest→oldest), then done
+  });
+
+  it('counts open tasks only', () => {
+    expect(openTaskCount(props)).toBe(2);
+    expect(openTaskCount([])).toBe(0);
+  });
+});
+
+describe('daysInMonth', () => {
+  it('returns correct day counts', () => {
+    expect(daysInMonth('2026-02')).toBe(28);
+    expect(daysInMonth('2024-02')).toBe(29); // leap year
+    expect(daysInMonth('2026-06')).toBe(30);
+    expect(daysInMonth('2026-07')).toBe(31);
+  });
+  it('falls back to 30 for malformed input', () => {
+    expect(daysInMonth('garbage')).toBe(30);
+  });
+});
+
+describe('dailyFigures', () => {
+  const metrics = { collectedRent: 3000, scheduledRent: 6000 };
+
+  it('uses the reference day-of-month within the same month', () => {
+    const d = dailyFigures(metrics, '2026-06', new Date(2026, 5, 10)); // June 10
+    expect(d.daysInMonth).toBe(30);
+    expect(d.dayOfMonth).toBe(10);
+    expect(d.collectedPerDay).toBe(300);  // 3000 / 10
+    expect(d.scheduledPerDay).toBe(200);  // 6000 / 30
+  });
+
+  it('uses full month length when the reference date is a different month', () => {
+    const d = dailyFigures(metrics, '2026-06', new Date(2026, 0, 15)); // January
+    expect(d.dayOfMonth).toBe(30);
+    expect(d.collectedPerDay).toBe(100); // 3000 / 30
+  });
+});
+
+describe('convertAmount', () => {
+  it('returns both USD and MXN from a dollar input', () => {
+    expect(convertAmount(1000, 'USD', 20)).toEqual({ usd: 1000, mxn: 20000 });
+  });
+  it('returns both from a peso input', () => {
+    expect(convertAmount(20000, 'MXN', 20)).toEqual({ usd: 1000, mxn: 20000 });
   });
 });
 
