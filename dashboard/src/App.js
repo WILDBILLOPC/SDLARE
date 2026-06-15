@@ -11,11 +11,16 @@ import {
   normalizeRate,
   computeMetrics,
   propertyPL,
-  groupByBuilding,
-  grandTotal,
+  buildTotals,
   allTasks,
+  allDocuments,
   dailyFigures,
   convertAmount,
+  buildSmsLink,
+  buildWhatsAppLink,
+  buildMailtoLink,
+  rentReminderMessage,
+  DOCUMENT_TYPES,
   loadProperties,
   saveProperties,
   loadSettings,
@@ -80,6 +85,7 @@ function useRentals() {
       units: [],
       expenses: [],
       tasks: [],
+      documents: [],
     };
     setProperties((prev) => [...prev, prop]);
     log(`Added property "${prop.name}"`);
@@ -100,6 +106,8 @@ function useRentals() {
         id: uid(),
         label: d.label.trim() || 'Unit',
         tenant: d.tenant.trim(),
+        phone: (d.phone || '').trim(),
+        email: (d.email || '').trim(),
         notes: d.notes.trim(),
         capacity: d.capacity.trim(),
         fixtures: d.fixtures.trim(),
@@ -179,6 +187,27 @@ function useRentals() {
     }));
   }, []);
 
+  const addDocument = useCallback((propId, d) => {
+    setProperties((prev) => prev.map((p) => p.id !== propId ? p : {
+      ...p,
+      documents: [...(p.documents || []), {
+        id: uid(),
+        type: d.type || DOCUMENT_TYPES[0],
+        name: (d.name || '').trim() || 'Document',
+        reference: (d.reference || '').trim(),
+        url: (d.url || '').trim(),
+        notes: (d.notes || '').trim(),
+      }],
+    }));
+    log(`Added document "${d.name}"`);
+  }, [log]);
+
+  const removeDocument = useCallback((propId, docId) => {
+    setProperties((prev) => prev.map((p) => p.id !== propId ? p : {
+      ...p, documents: (p.documents || []).filter((d) => d.id !== docId),
+    }));
+  }, []);
+
   const updateSettings = useCallback((patch) => setSettings((prev) => ({ ...prev, ...patch })), []);
 
   const loadSample = useCallback(() => {
@@ -195,6 +224,7 @@ function useRentals() {
     properties, settings, activity,
     addProperty, removeProperty, addUnit, removeUnit, togglePayment,
     addExpense, removeExpense, addTask, toggleTask, removeTask,
+    addDocument, removeDocument,
     updateSettings, loadSample, clearAll,
   };
 }
@@ -379,6 +409,7 @@ const PropertiesView = ({ store, month, rate }) => {
   const [showProp, setShowProp] = useState(false);
   const [unitFor, setUnitFor] = useState(null);
   const [expenseFor, setExpenseFor] = useState(null);
+  const [docFor, setDocFor] = useState(null);
   const { properties, settings } = store;
 
   if (properties.length === 0) {
@@ -447,11 +478,14 @@ const PropertiesView = ({ store, month, rate }) => {
                               <td><button className={`pay-toggle ${cls}`} disabled={!occ} onClick={() => occ && store.togglePayment(prop.id, u.id, month)}>{txt}</button></td>
                               <td><button className="btn-danger" onClick={() => store.removeUnit(prop.id, u.id)}>✕</button></td>
                             </tr>
-                            {(u.fixtures || u.features || u.notes) && (
+                            {(u.fixtures || u.features || u.notes || u.phone || u.email) && (
                               <tr className="detail-row"><td colSpan={7}>
                                 {u.fixtures && <span className="tag">Fixtures: {u.fixtures}</span>}
                                 {u.features && <span className="tag">Features: {u.features}</span>}
                                 {u.notes && <span className="tag">📝 {u.notes}</span>}
+                                {u.phone && <span className="tag">📞 {u.phone}</span>}
+                                {u.email && <span className="tag">✉ {u.email}</span>}
+                                {(u.phone || u.email) && <SendLinks unit={u} propertyName={prop.name} />}
                               </td></tr>
                             )}
                           </React.Fragment>
@@ -475,6 +509,20 @@ const PropertiesView = ({ store, month, rate }) => {
                 </>
               )}
 
+              {(prop.documents || []).length > 0 && (
+                <>
+                  <div className="sub-head"><span>Documents</span></div>
+                  {prop.documents.map((d) => (
+                    <div className="expense-row" key={d.id}>
+                      <span><span className="tag">{d.type}</span> {d.url ? <a className="doc-link" href={d.url} target="_blank" rel="noreferrer">{d.name}</a> : d.name}
+                        {d.reference ? <span className="dim small"> · {d.reference}</span> : null}
+                        {d.notes ? <span className="dim small"> · {d.notes}</span> : null}</span>
+                      <button className="btn-danger" onClick={() => store.removeDocument(prop.id, d.id)}>✕</button>
+                    </div>
+                  ))}
+                </>
+              )}
+
               <div className="sub-head"><span>Tasks</span></div>
               <div style={{ padding: '0 1.25rem 0.5rem' }}>
                 <TaskList tasks={(prop.tasks || [])} emptyText="No tasks for this property."
@@ -486,6 +534,7 @@ const PropertiesView = ({ store, month, rate }) => {
               <div className="sub-head" style={{ paddingBottom: '0.9rem' }}>
                 <button className="btn-secondary" onClick={() => setUnitFor(prop.id)}>+ Unit</button>
                 <button className="btn-secondary" onClick={() => setExpenseFor(prop.id)}>+ Expense</button>
+                <button className="btn-secondary" onClick={() => setDocFor(prop.id)}>+ Document</button>
               </div>
             </div>
           );
@@ -495,6 +544,7 @@ const PropertiesView = ({ store, month, rate }) => {
       {showProp && <PropertyForm onClose={() => setShowProp(false)} onSave={(d) => { store.addProperty(d); setShowProp(false); }} />}
       {unitFor && <UnitForm defaultCurrency={settings.defaultCurrency} onClose={() => setUnitFor(null)} onSave={(d) => { store.addUnit(unitFor, d); setUnitFor(null); }} />}
       {expenseFor && <ExpenseForm defaultCurrency={settings.defaultCurrency} onClose={() => setExpenseFor(null)} onSave={(d) => { store.addExpense(expenseFor, d); setExpenseFor(null); }} />}
+      {docFor && <DocumentForm onClose={() => setDocFor(null)} onSave={(d) => { store.addDocument(docFor, d); setDocFor(null); }} />}
     </>
   );
 };
@@ -574,35 +624,57 @@ const ExpensesView = ({ store, rate }) => {
   );
 };
 
-// ── Rentals: Totals sub-view (property → building → grand) ──
+// ── Rentals: Totals sub-view (rearrangeable) ───────────────
 const TotalsView = ({ store, month, rate }) => {
-  const { properties } = store;
+  const { properties, settings, updateSettings } = store;
   if (properties.length === 0) {
     return <div className="empty-state"><div className="empty-icon">💰</div><div className="empty-title">No Data</div><div className="empty-sub">Add properties to see totals</div></div>;
   }
-  const groups = groupByBuilding(properties, month, rate);
-  const grand = grandTotal(properties, month, rate);
+  const groupBy = settings.totalsGroupBy || 'building';
+  const sortBy = settings.totalsSortBy || 'name';
+  const sortDir = settings.totalsSortDir || 'asc';
+  const { grouped, groups, grand } = buildTotals(properties, { month, rate, groupBy, sortBy, sortDir });
 
   return (
     <>
       <div className="section-head"><h2>Totals &amp; P&amp;L — {month}</h2></div>
+
+      <div className="arrange-bar">
+        <span className="arr-label">Group</span>
+        <div className="seg">
+          {[['building', 'Building'], ['none', 'None']].map(([v, l]) => (
+            <button key={v} className={`seg-btn ${groupBy === v ? 'active' : ''}`} onClick={() => updateSettings({ totalsGroupBy: v })}>{l}</button>
+          ))}
+        </div>
+        <span className="arr-label">Sort</span>
+        <div className="seg">
+          {[['name', 'Name'], ['income', 'Income'], ['net', 'Net']].map(([v, l]) => (
+            <button key={v} className={`seg-btn ${sortBy === v ? 'active' : ''}`} onClick={() => updateSettings({ totalsSortBy: v })}>{l}</button>
+          ))}
+        </div>
+        <button className="seg-btn dir" title="Toggle direction"
+          onClick={() => updateSettings({ totalsSortDir: sortDir === 'asc' ? 'desc' : 'asc' })}>{sortDir === 'asc' ? '▲' : '▼'}</button>
+      </div>
+
       <div className="panel">
-        <div className="panel-title">BY BUILDING → BY PROPERTY (USD / MXN)</div>
+        <div className="panel-title">{grouped ? 'BY BUILDING → BY PROPERTY' : 'BY PROPERTY'} (USD / MXN)</div>
         <div className="table-scroll">
           <table className="pl-table">
-            <thead><tr><th>Building / Property</th><th className="num">Income</th><th className="num">Expenses</th><th className="num">Net</th></tr></thead>
+            <thead><tr><th>{grouped ? 'Building / Property' : 'Property'}</th><th className="num">Income</th><th className="num">Expenses</th><th className="num">Net</th></tr></thead>
             <tbody>
               {groups.map((g) => (
-                <React.Fragment key={g.building}>
-                  <tr className="group-row">
-                    <td>▸ {g.building}</td>
-                    <td className="num val-green">{formatDual(g.income, rate)}</td>
-                    <td className="num val-red">{formatDual(g.expenses, rate)}</td>
-                    <td className={`num val-${g.net >= 0 ? 'cyan' : 'red'}`}>{formatDual(g.net, rate)}</td>
-                  </tr>
+                <React.Fragment key={g.key || 'flat'}>
+                  {grouped && (
+                    <tr className="group-row">
+                      <td>▸ {g.building}</td>
+                      <td className="num val-green">{formatDual(g.income, rate)}</td>
+                      <td className="num val-red">{formatDual(g.expenses, rate)}</td>
+                      <td className={`num val-${g.net >= 0 ? 'cyan' : 'red'}`}>{formatDual(g.net, rate)}</td>
+                    </tr>
+                  )}
                   {g.properties.map((r) => (
                     <tr key={r.id}>
-                      <td className="indent">{r.name}</td>
+                      <td className={grouped ? 'indent' : ''}>{r.name}{!grouped && r.building ? <span className="dim small"> · {r.building}</span> : null}</td>
                       <td className="num val-green">{formatDual(r.income, rate)}</td>
                       <td className="num val-red">{formatDual(r.expenses, rate)}</td>
                       <td className={`num val-${r.net >= 0 ? 'cyan' : 'red'}`}>{formatDual(r.net, rate)}</td>
@@ -626,6 +698,49 @@ const TotalsView = ({ store, month, rate }) => {
           </table>
         </div>
       </div>
+    </>
+  );
+};
+
+// ── Rentals: Documents sub-view (inventory) ────────────────
+const DocumentsView = ({ store }) => {
+  const { properties } = store;
+  const [addFor, setAddFor] = useState(null);
+  const docs = allDocuments(properties);
+  return (
+    <>
+      <div className="section-head">
+        <h2>Documents</h2>
+        <button className="btn-primary" style={{ marginTop: 0 }} disabled={properties.length === 0}
+          onClick={() => setAddFor(properties[0]?.id || null)}>+ ADD DOCUMENT</button>
+      </div>
+      {properties.length === 0 ? (
+        <div className="empty-state"><div className="empty-icon">📂</div><div className="empty-title">No Properties</div><div className="empty-sub">Add a property before logging documents</div></div>
+      ) : (
+        <div className="panel">
+          <div className="panel-title">INVENTORY — {docs.length} DOCUMENTS</div>
+          <div className="table-scroll">
+            <table className="pl-table">
+              <thead><tr><th>Property</th><th>Type</th><th>Name</th><th>Reference</th><th>Notes</th><th></th></tr></thead>
+              <tbody>
+                {docs.length === 0 && <tr><td colSpan={6} className="dim">Nothing logged yet.</td></tr>}
+                {docs.map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.propName}</td>
+                    <td><span className="tag">{d.type}</span></td>
+                    <td>{d.url ? <a className="doc-link" href={d.url} target="_blank" rel="noreferrer">{d.name}</a> : d.name}</td>
+                    <td className="dim small">{d.reference || '—'}</td>
+                    <td className="dim small">{d.notes || '—'}</td>
+                    <td><button className="btn-danger" onClick={() => store.removeDocument(d.propId, d.id)}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {addFor && <DocumentForm withProperty properties={properties} propId={addFor}
+        onClose={() => setAddFor(null)} onSave={(d) => { store.addDocument(d.propId, d); setAddFor(null); }} />}
     </>
   );
 };
@@ -677,6 +792,7 @@ const OptionsView = ({ store }) => {
 const RENTAL_SUBTABS = [
   { id: 'properties', label: 'Properties', icon: '🏠' },
   { id: 'expenses', label: 'Expenses', icon: '🧾' },
+  { id: 'documents', label: 'Documents', icon: '📂' },
   { id: 'totals', label: 'Totals & P&L', icon: '💰' },
   { id: 'options', label: 'Options', icon: '⚙️' },
 ];
@@ -684,6 +800,7 @@ const RENTAL_SUBTABS = [
 const RentalSubView = ({ view, store, month, rate }) => {
   switch (view) {
     case 'expenses': return <ExpensesView store={store} rate={rate} />;
+    case 'documents': return <DocumentsView store={store} />;
     case 'totals': return <TotalsView store={store} month={month} rate={rate} />;
     case 'options': return <OptionsView store={store} />;
     case 'properties':
@@ -727,6 +844,20 @@ const Modal = ({ title, children, onClose, onSave }) => (
 const Field = ({ label, ...props }) => (
   <div className="field"><label>{label}</label><input {...props} /></div>
 );
+
+// Tenant contact actions — open the user's SMS / WhatsApp / email app with a
+// pre-filled bilingual rent reminder (no backend needed).
+const SendLinks = ({ unit, propertyName }) => {
+  const msg = rentReminderMessage(unit, propertyName);
+  const subject = `Rent reminder · Recordatorio de renta — ${propertyName}`;
+  return (
+    <span className="send-links">
+      {unit.phone && <a className="send-btn" href={buildSmsLink(unit.phone, msg)}>✉ Text</a>}
+      {unit.phone && <a className="send-btn wa" href={buildWhatsAppLink(unit.phone, msg)} target="_blank" rel="noreferrer">WhatsApp</a>}
+      {unit.email && <a className="send-btn" href={buildMailtoLink(unit.email, subject, msg)}>@ Email</a>}
+    </span>
+  );
+};
 
 // Inline "add a task" input + button (Enter or click to submit).
 const TaskAdder = ({ onAdd }) => {
@@ -774,7 +905,7 @@ const PropertyForm = ({ onClose, onSave }) => {
 
 const UnitForm = ({ defaultCurrency = 'USD', onClose, onSave }) => {
   const [f, setF] = useState({
-    label: '', tenant: '', rent: '', rentCurrency: defaultCurrency,
+    label: '', tenant: '', phone: '', email: '', rent: '', rentCurrency: defaultCurrency,
     capacity: '', fixtures: '', features: '', notes: '', leaseStart: '', leaseEnd: '',
   });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -783,6 +914,10 @@ const UnitForm = ({ defaultCurrency = 'USD', onClose, onSave }) => {
       <div className="field-row">
         <Field label="Unit label" value={f.label} autoFocus onChange={set('label')} placeholder="Unit A" />
         <Field label="Tenant (blank = vacant)" value={f.tenant} onChange={set('tenant')} placeholder="Ana García" />
+      </div>
+      <div className="field-row">
+        <Field label="Tenant phone" value={f.phone} onChange={set('phone')} placeholder="+1 619 555 0101" />
+        <Field label="Tenant email" type="email" value={f.email} onChange={set('email')} placeholder="ana@example.com" />
       </div>
       <CurrencyAmount label="Monthly rent" amount={f.rent} currency={f.rentCurrency}
         onAmount={(v) => setF({ ...f, rent: v })} onCurrency={(c) => setF({ ...f, rentCurrency: c })} />
@@ -820,6 +955,35 @@ const ExpenseForm = ({ defaultCurrency = 'USD', withProperty = false, properties
       <CurrencyAmount label="Monthly amount" amount={f.amount} currency={f.currency}
         onAmount={(v) => setF({ ...f, amount: v })} onCurrency={(c) => setF({ ...f, currency: c })} />
       <TextField label="Notes" value={f.notes} onChange={set('notes')} placeholder="e.g. Predial ÷ 12" />
+    </Modal>
+  );
+};
+
+const DocumentForm = ({ withProperty = false, properties = [], propId, onClose, onSave }) => {
+  const [f, setF] = useState({ propId: propId || properties[0]?.id || '', type: DOCUMENT_TYPES[0], name: '', reference: '', url: '', notes: '' });
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  return (
+    <Modal title="Add Document" onClose={onClose} onSave={() => onSave(f)}>
+      {withProperty && (
+        <div className="field">
+          <label>Property</label>
+          <select value={f.propId} onChange={set('propId')}>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div className="field">
+        <label>Type</label>
+        <select value={f.type} onChange={set('type')}>
+          {DOCUMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <Field label="Name" value={f.name} autoFocus onChange={set('name')} placeholder="Unit A Lease 2025" />
+      <div className="field-row">
+        <Field label="Reference / account #" value={f.reference} onChange={set('reference')} placeholder="LSE-A-25" />
+        <Field label="Link (optional)" value={f.url} onChange={set('url')} placeholder="https://drive.google.com/…" />
+      </div>
+      <TextField label="Notes" value={f.notes} onChange={set('notes')} placeholder="Renewal date, provider…" />
     </Modal>
   );
 };

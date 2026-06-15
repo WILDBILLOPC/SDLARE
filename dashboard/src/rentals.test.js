@@ -3,11 +3,19 @@ import {
   propertyPL,
   groupByBuilding,
   grandTotal,
+  buildTotals,
+  sortPLRows,
   allTasks,
   openTaskCount,
+  allDocuments,
   daysInMonth,
   dailyFigures,
   convertAmount,
+  sanitizePhone,
+  buildSmsLink,
+  buildWhatsAppLink,
+  buildMailtoLink,
+  rentReminderMessage,
   formatMoney,
   formatDual,
   formatPct,
@@ -187,6 +195,91 @@ describe('propertyPL / groupByBuilding / grandTotal', () => {
 
   it('computes a portfolio grand total', () => {
     expect(grandTotal(props, MONTH, RATE)).toEqual({ income: 4500, expenses: 500, net: 4000 });
+  });
+});
+
+describe('buildTotals (rearrangeable)', () => {
+  const props = [
+    { id: 'p1', name: 'Bravo', building: 'San Diego', units: [unit({ rent: 1000, tenant: 'A' })], expenses: [] },
+    { id: 'p2', name: 'Alpha', building: 'San Diego', units: [unit({ rent: 3000, tenant: 'B' })], expenses: [] },
+    { id: 'p3', name: 'Charlie', building: 'Tijuana', units: [unit({ rent: 2000, tenant: 'C' })], expenses: [] },
+  ];
+
+  it('groups by building by default and sorts groups + rows by name', () => {
+    const { grouped, groups, grand } = buildTotals(props, { month: MONTH, rate: RATE });
+    expect(grouped).toBe(true);
+    expect(groups.map((g) => g.building)).toEqual(['San Diego', 'Tijuana']);
+    // within San Diego, properties sorted by name asc
+    expect(groups[0].properties.map((r) => r.name)).toEqual(['Alpha', 'Bravo']);
+    expect(grand.income).toBe(6000);
+  });
+
+  it('supports a flat (groupBy none) arrangement', () => {
+    const { grouped, groups } = buildTotals(props, { month: MONTH, rate: RATE, groupBy: 'none', sortBy: 'name' });
+    expect(grouped).toBe(false);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].properties.map((r) => r.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+  });
+
+  it('sorts by net descending when requested', () => {
+    const { groups } = buildTotals(props, { month: MONTH, rate: RATE, groupBy: 'none', sortBy: 'net', sortDir: 'desc' });
+    expect(groups[0].properties.map((r) => r.income)).toEqual([3000, 2000, 1000]);
+  });
+});
+
+describe('sortPLRows', () => {
+  const rows = [
+    { name: 'B', income: 100, net: 10 },
+    { name: 'A', income: 300, net: -5 },
+    { name: 'C', income: 200, net: 50 },
+  ];
+  it('sorts by name asc by default', () => {
+    expect(sortPLRows(rows).map((r) => r.name)).toEqual(['A', 'B', 'C']);
+  });
+  it('sorts by income desc', () => {
+    expect(sortPLRows(rows, 'income', 'desc').map((r) => r.income)).toEqual([300, 200, 100]);
+  });
+  it('does not mutate the input', () => {
+    const copy = [...rows];
+    sortPLRows(rows, 'net', 'desc');
+    expect(rows).toEqual(copy);
+  });
+});
+
+describe('messaging links', () => {
+  it('sanitizes phone numbers to digits, keeping a leading +', () => {
+    expect(sanitizePhone('+1 (619) 555-0101')).toBe('+16195550101');
+    expect(sanitizePhone('619.555.0101')).toBe('6195550101');
+    expect(sanitizePhone('')).toBe('');
+  });
+  it('builds an sms: link with an encoded body', () => {
+    expect(buildSmsLink('+16195550101', 'Hi there')).toBe('sms:+16195550101?&body=Hi%20there');
+  });
+  it('builds a wa.me link with digits only', () => {
+    expect(buildWhatsAppLink('+16195550101', 'Hola')).toBe('https://wa.me/16195550101?text=Hola');
+  });
+  it('builds a mailto: link with subject and body', () => {
+    expect(buildMailtoLink('a@b.com', 'Sub', 'Body')).toBe('mailto:a@b.com?subject=Sub&body=Body');
+  });
+  it('produces a bilingual rent reminder with the amount in the unit currency', () => {
+    const msg = rentReminderMessage({ tenant: 'Ana', rent: 2400, rentCurrency: 'USD', label: 'Unit A' }, 'SD Duplex');
+    expect(msg).toContain('Ana');
+    expect(msg).toContain('$2,400');
+    expect(msg).toContain('SD Duplex');
+    expect(msg).toContain('renta'); // Spanish half
+  });
+});
+
+describe('allDocuments', () => {
+  it('flattens documents across properties, tagging the owner', () => {
+    const props = [
+      { id: 'p1', name: 'A', documents: [{ id: 'd1', type: 'Utility', name: 'Electric' }] },
+      { id: 'p2', name: 'B', documents: [{ id: 'd2', type: 'Lease / Contract', name: 'Lease' }] },
+      { id: 'p3', name: 'C' },
+    ];
+    const docs = allDocuments(props);
+    expect(docs).toHaveLength(2);
+    expect(docs[0]).toMatchObject({ id: 'd1', propId: 'p1', propName: 'A' });
   });
 });
 

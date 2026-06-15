@@ -10,13 +10,14 @@
 //
 // Data shape:
 //   Property { id, name, building, address, notes,
-//              units: Unit[], expenses: Expense[], tasks: Task[] }
-//   Unit     { id, label, tenant, notes, capacity, fixtures, features,
+//              units: Unit[], expenses: Expense[], tasks: Task[], documents: Doc[] }
+//   Unit     { id, label, tenant, phone, email, notes, capacity, fixtures, features,
 //              rent, rentCurrency, leaseStart, leaseEnd,
 //              payments: { 'YYYY-MM': 'paid' | 'outstanding' } }
 //   Expense  { id, category, amount, currency, notes }   // recurring monthly cost
 //   Task     { id, text, done, created }                 // per-property to-do
-//   Settings { usdMxn, defaultCurrency }
+//   Doc      { id, type, name, reference, url, notes }   // document inventory entry
+//   Settings { usdMxn, defaultCurrency, totals* }
 
 export const STORAGE_KEY = 'sdlare.rentals.v1';
 export const SETTINGS_KEY = 'sdlare.settings.v1';
@@ -36,7 +37,14 @@ export const EXPENSE_CATEGORIES = [
   'Other',
 ];
 
-export const DEFAULT_SETTINGS = { usdMxn: 17, defaultCurrency: 'USD' };
+export const DEFAULT_SETTINGS = {
+  usdMxn: 17,
+  defaultCurrency: 'USD',
+  // How the Totals & P&L view is arranged (user-rearrangeable).
+  totalsGroupBy: 'building', // 'building' | 'none'
+  totalsSortBy: 'name',      // 'name' | 'income' | 'net'
+  totalsSortDir: 'asc',      // 'asc' | 'desc'
+};
 
 // ── ID + date helpers ──────────────────────────────────────────────────
 export function uid() {
@@ -186,6 +194,57 @@ export function groupByBuilding(properties = [], month = monthKey(), rate = DEFA
   return Array.from(groups.values());
 }
 
+// Sort an array of P&L rows (properties or groups) by a field + direction.
+export function sortPLRows(rows, sortBy = 'name', sortDir = 'asc') {
+  const dir = sortDir === 'desc' ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    let cmp;
+    if (sortBy === 'net') cmp = a.net - b.net;
+    else if (sortBy === 'income') cmp = a.income - b.income;
+    else cmp = String(a.name ?? a.building ?? '').localeCompare(String(b.name ?? b.building ?? ''));
+    return cmp * dir;
+  });
+}
+
+// Build the Totals & P&L view, arrangeable by the user. `groupBy` controls
+// whether rows are grouped under a building/group header ('building') or
+// shown as a flat per-property list ('none'); `sortBy`/`sortDir` order both
+// the groups and the rows within them. Returns groups (always) + the grand
+// total so the UI can render either mode uniformly.
+export function buildTotals(properties = [], opts = {}) {
+  const {
+    month = monthKey(),
+    rate = DEFAULT_SETTINGS.usdMxn,
+    groupBy = 'building',
+    sortBy = 'name',
+    sortDir = 'asc',
+  } = opts;
+  const grand = grandTotal(properties, month, rate);
+  const rows = properties.map((p) => propertyPL(p, month, rate));
+
+  if (groupBy === 'none') {
+    return {
+      grouped: false,
+      groups: [{ key: '', building: '', ...grand, properties: sortPLRows(rows, sortBy, sortDir) }],
+      grand,
+    };
+  }
+
+  const map = new Map();
+  for (const pl of rows) {
+    const k = pl.building;
+    if (!map.has(k)) map.set(k, { key: k, building: k, income: 0, expenses: 0, net: 0, properties: [] });
+    const g = map.get(k);
+    g.income += pl.income;
+    g.expenses += pl.expenses;
+    g.net += pl.net;
+    g.properties.push(pl);
+  }
+  const groups = sortPLRows(Array.from(map.values()), sortBy, sortDir)
+    .map((g) => ({ ...g, properties: sortPLRows(g.properties, sortBy, sortDir) }));
+  return { grouped: true, groups, grand };
+}
+
 // Portfolio grand total (USD base) across all properties.
 export function grandTotal(properties = [], month = monthKey(), rate = DEFAULT_SETTINGS.usdMxn) {
   return properties.reduce(
@@ -248,6 +307,71 @@ export function dailyFigures(metrics, month = monthKey(), refDate = new Date()) 
 export function convertAmount(amount, currency, rate) {
   const usd = toUSD(amount, currency, rate);
   return { usd, mxn: usdToMxn(usd, rate) };
+}
+
+// ── Messaging (SMS / WhatsApp / Email deep links) ───────────────────────
+// The dashboard has no backend, so "sending" opens the user's own SMS,
+// WhatsApp or email app with a pre-filled message via standard deep links.
+// All builders are pure so they can be unit-tested.
+
+// Strip a phone number down to digits (keeping a leading +).
+export function sanitizePhone(phone) {
+  if (!phone) return '';
+  const trimmed = String(phone).trim();
+  const plus = trimmed.startsWith('+') ? '+' : '';
+  return plus + trimmed.replace(/[^\d]/g, '');
+}
+
+export function buildSmsLink(phone, body = '') {
+  return `sms:${sanitizePhone(phone)}?&body=${encodeURIComponent(body)}`;
+}
+
+// wa.me expects digits only, no '+'.
+export function buildWhatsAppLink(phone, text = '') {
+  const digits = sanitizePhone(phone).replace('+', '');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
+export function buildMailtoLink(email, subject = '', body = '') {
+  return `mailto:${(email || '').trim()}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// Bilingual (EN/ES) rent-reminder message for a unit, with the amount due in
+// the unit's own currency. Used to pre-fill SMS/WhatsApp/email.
+export function rentReminderMessage(unit, propertyName = '') {
+  const who = (unit && unit.tenant) ? unit.tenant : 'there';
+  const amount = formatMoney(toAmount(unit && unit.rent), (unit && unit.rentCurrency) || 'USD');
+  const where = propertyName ? ` for ${propertyName}${unit && unit.label ? ` (${unit.label})` : ''}` : '';
+  return (
+    `Hi ${who}, a friendly reminder that your rent of ${amount}${where} is due. ` +
+    `Please let us know if you have any questions. Thank you! — SDLARE\n\n` +
+    `Hola ${who}, un recordatorio de que su renta de ${amount}${where} está por vencer. ` +
+    `Cualquier duda, con gusto le ayudamos. ¡Gracias! — SDLARE`
+  );
+}
+
+// ── Document inventory ──────────────────────────────────────────────────
+export const DOCUMENT_TYPES = [
+  'Lease / Contract',
+  'Utility',
+  'Insurance',
+  'Property Tax',
+  'HOA',
+  'Inspection',
+  'Permit',
+  'Other',
+];
+
+// Flatten every property's documents into one inventory list, tagged with the
+// owning property.
+export function allDocuments(properties = []) {
+  const docs = [];
+  for (const prop of properties) {
+    for (const d of prop.documents || []) {
+      docs.push({ ...d, propId: prop.id, propName: prop.name });
+    }
+  }
+  return docs;
 }
 
 // ── Persistence ─────────────────────────────────────────────────────────
@@ -313,7 +437,8 @@ export function sampleProperties() {
       notes: 'Long-term tenants. Roof replaced 2024.',
       units: [
         {
-          id: uid(), label: 'Unit A', tenant: 'Ana García', notes: 'Section 8 voucher.',
+          id: uid(), label: 'Unit A', tenant: 'Ana García',
+          phone: '+16195550101', email: 'ana@example.com', notes: 'Section 8 voucher.',
           capacity: '2BR / 1BA · 850 sqft', fixtures: 'Range, fridge, in-unit W/D',
           features: 'Off-street parking, fenced yard',
           rent: 2400, rentCurrency: 'USD', leaseStart: '2025-01-01', leaseEnd: '2026-12-31',
@@ -334,6 +459,11 @@ export function sampleProperties() {
         { id: uid(), text: 'Follow up on Unit B rent', done: false, created: Date.now() },
         { id: uid(), text: 'Schedule annual HVAC service', done: false, created: Date.now() - 1000 },
       ],
+      documents: [
+        { id: uid(), type: 'Lease / Contract', name: 'Unit A Lease 2025', reference: 'LSE-A-25', url: '', notes: 'Renews 2026-12-31' },
+        { id: uid(), type: 'Utility', name: 'SDG&E electric', reference: 'Acct 8829-1', url: '', notes: 'Autopay' },
+        { id: uid(), type: 'Insurance', name: 'Landlord policy', reference: 'POL-44821', url: '', notes: '' },
+      ],
     },
     {
       id: uid(),
@@ -343,7 +473,8 @@ export function sampleProperties() {
       notes: 'Cross-border rental — collected in pesos.',
       units: [
         {
-          id: uid(), label: 'Depto 3', tenant: 'Roberto Núñez', notes: 'Ocean view.',
+          id: uid(), label: 'Depto 3', tenant: 'Roberto Núñez',
+          phone: '+526641234567', email: 'roberto@example.mx', notes: 'Ocean view.',
           capacity: '2 rec / 2 baños · 95 m²', fixtures: 'Estufa, refri, boiler',
           features: 'Alberca, seguridad 24h', rent: 28000, rentCurrency: 'MXN',
           leaseStart: '2025-03-01', leaseEnd: '2026-02-28', payments: { [m]: 'paid' },
@@ -355,6 +486,10 @@ export function sampleProperties() {
       ],
       tasks: [
         { id: uid(), text: 'Renew INM paperwork for tenant', done: false, created: Date.now() - 2000 },
+      ],
+      documents: [
+        { id: uid(), type: 'Lease / Contract', name: 'Contrato Depto 3', reference: 'CTR-D3', url: '', notes: 'En español' },
+        { id: uid(), type: 'HOA', name: 'Reglamento condominio', reference: '', url: '', notes: '' },
       ],
     },
   ];

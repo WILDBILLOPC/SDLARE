@@ -839,3 +839,43 @@ body {
   outline: none;
 }
 .task-add input:focus { border-color: var(--cyan); }
+
+/* ── Send links (SMS / WhatsApp / Email) ──────────────────── */
+.send-links { display: inline-flex; gap: 6px; margin-left: 4px; }
+.send-btn {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--cyan);
+  background: rgba(0,212,255,0.10);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  transition: all 0.15s;
+}
+.send-btn:hover { border-color: var(--cyan); background: rgba(0,212,255,0.18); }
+.send-btn.wa { color: var(--green); background: rgba(0,255,136,0.10); }
+.send-btn.wa:hover { border-color: var(--green); background: rgba(0,255,136,0.18); }
+
+/* ── Document links ───────────────────────────────────────── */
+.doc-link { color: var(--cyan); text-decoration: none; border-bottom: 1px dotted var(--cyan); }
+.doc-link:hover { color: #fff; }
+
+/* ── Arrange bar (totals grouping/sort controls) ──────────── */
+.arrange-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.arr-label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.seg-btn.dir { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; }

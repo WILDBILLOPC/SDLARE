@@ -16,13 +16,17 @@ via PM2 at `localhost:3000` on the Mac mini.
 ## Rentals sub-tabs
 
 - **Properties** — add/delete properties (with a *Building / Group* label, address, notes) and
-  units. Each unit captures tenant, **capacity, fixtures, features, notes**, lease dates, and
-  monthly rent in **dollars or pesos**. Mark each unit's rent paid/outstanding per month. Each
-  property has its own **task list** that rolls up into the Overview macro list.
+  units. Each unit captures tenant, **phone, email**, **capacity, fixtures, features, notes**,
+  lease dates, and monthly rent in **dollars or pesos**. Mark each unit's rent paid/outstanding
+  per month. **Send** a pre-filled bilingual rent reminder by **SMS, WhatsApp, or email**. Each
+  property has its own **task list** and **document list**.
 - **Expenses** — log expenses one-by-one (category presets like Property Tax, currency, notes),
   with a by-category roll-up and a fully itemized table for analysis.
-- **Totals & P&L** — income / expenses / net **by building, by property, and a grand total**,
-  every figure shown in both USD and MXN, plus an annual projection.
+- **Documents** — a portfolio-wide **document inventory** (leases/contracts, utilities,
+  insurance, tax, HOA, permits…) with reference numbers, optional links, and notes.
+- **Totals & P&L** — income / expenses / net **rearrangeable** by the user (group by building or
+  flat; sort by name / income / net, asc/desc), every figure shown in both USD and MXN, plus an
+  annual projection. Default groups by building.
 - **Options** — set the USD→MXN exchange rate and default input currency, load sample
   fixtures, or clear all data.
 
