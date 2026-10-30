@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDLARE Rentals</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">☰</button>
+    <a class="brand" href="#/dashboard"><span class="brand-mark">SD</span> SDLARE Rentals</a>
+    <label class="asof">As of <input type="date" id="as-of"></label>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar">
+      <a href="#/dashboard" data-nav="dashboard">Dashboard</a>
+      <a href="#/rent-roll" data-nav="rent-roll">Rent roll</a>
+      <a href="#/properties" data-nav="properties">Properties</a>
+      <a href="#/units" data-nav="units">Units</a>
+      <a href="#/tenants" data-nav="tenants">Tenants</a>
+      <a href="#/leases" data-nav="leases">Leases</a>
+      <a href="#/payments" data-nav="payments">Payments</a>
+      <a href="#/maintenance" data-nav="maintenance">Maintenance</a>
+      <a href="#/expenses" data-nav="expenses">Expenses</a>
+    </nav>
+    <main id="view" tabindex="-1"></main>
+  </div>
+
+  <dialog id="modal">
+    <form method="dialog" id="modal-form" novalidate>
+      <header><h2 id="modal-title"></h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></header>
+      <div id="modal-body" class="form-grid"></div>
+      <p class="form-error" id="modal-error" hidden></p>
+      <footer>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn primary" id="modal-submit">Save</button>
+      </footer>
+    </form>
+  </dialog>
+  <div id="toast" role="status" hidden></div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
